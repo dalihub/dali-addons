@@ -1,24 +1,18 @@
-#include <dali/integration-api/addon-manager.h>
+/**
+ * Copyright (c) 2020 Samsung Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * This software is a confidential and proprietary information of Samsung
+ * Electronics, Inc. ("Confidential Information").  You shall not disclose such
+ * Confidential Information and use it in accordance with the terms of your
+ * employment with Samsung.
+ */
+ 
+#include <dali/devel-api/addons/addon-base.h>
+
 #include <dali/devel-api/adaptor-framework/image-loading.h>
 #include <dali/devel-api/adaptor-framework/image-loader-input.h>
-
-/*
-        auto getFormatMagicNumber = addOnManager->GetGlobalProc<uint16_t()>( handle, "GetFormatMagicNumber" );
-        auto getFormatExtension = addOnManager->GetGlobalProc<const char*()>( handle, "GetFormatExtension" );
-        auto loadBitmap = Dali::ImageLoader::LoadBitmapFunction(addOnManager->GetGlobalProc( handle, "LoadBitmap" ));
-        auto loadHeader = Dali::ImageLoader::LoadBitmapHeaderFunction(addOnManager->GetGlobalProc( handle, "LoadHeader" ));
-        auto getBitmapProfile = addOnManager->GetGlobalProc<Bitmap::Profile()>( handle, "GetBitmapProfile" );
-
- */
-
-extern "C" void GetAddOnInfo( Dali::AddOnInfo& info )
-{
-  info.type = Dali::AddOnType::IMAGE_LOADER;
-  info.name = "raw-image-loader";
-  info.version = Dali::DALI_ADDON_VERSION( 1, 0, 0 );
-  info.next = nullptr;
-}
-
+#include <dali/internal/common/owner-pointer.h>
 
 // Loader API
 
@@ -48,14 +42,14 @@ Header LoadBitmapHeaderInternal( const Dali::ImageLoader::Input& input, unsigned
   Header header{};
   header.magic = 0;
 
-  fread( &header, 1, sizeof(Header), input.file );
+  if( fread( &header, 1, sizeof(Header), input.file ) )
+  {
+    printf("RAW: width = %d\n", header.width);
+    printf("RAW: height = %d\n", header.height);
 
-  printf("RAW: width = %d\n", header.width);
-  printf("RAW: height = %d\n", header.height);
-
-  width = header.width;
-  height = header.height;
-
+    width = header.width;
+    height = header.height;
+  }
   return header;
 }
 
@@ -69,10 +63,13 @@ bool LoadBitmap( const Dali::ImageLoader::Input& input, Dali::Devel::PixelBuffer
   // rewind stream
   fseek( input.file, 0, SEEK_SET );
   unsigned int w, h;
-  auto header = LoadBitmapHeaderInternal( input, w, h );
+  LoadBitmapHeaderInternal( input, w, h );
   pixelData = Dali::Devel::PixelBuffer::New( w, h, Dali::Pixel::Format::RGBA8888 );
-  fread( pixelData.GetBuffer(), 1, w*h*4, input.file);
-  return true;
+  if( fread( pixelData.GetBuffer(), 1, w*h*4, input.file) )
+  {
+    return true;
+  }
+  return false;
 }
 
 Dali::Integration::Bitmap::Profile GetBitmapProfile()
@@ -81,34 +78,40 @@ Dali::Integration::Bitmap::Profile GetBitmapProfile()
   return Dali::Integration::Bitmap::Profile::BITMAP_2D_PACKED_PIXELS;
 }
 
-// Dispatch table
-extern "C" void* GetGlobalProc( const char* funcname )
+/**
+ * RawImageLoader implementation
+ */
+using namespace Dali::AddOns;
+class RawImageLoader : public Dali::AddOns::AddOnBase
 {
-  std::string str (funcname);
-  if (str == "GetFormatMagicNumber")
-  {
-    return reinterpret_cast<void *>(GetFormatMagicNumber);
-  }
-  else if (str == "GetFormatExtension")
-  {
-    return reinterpret_cast<void *>(GetFormatExtension);
-  }
-  else if (str == "LoadBitmap")
-  {
-    return reinterpret_cast<void *>(LoadBitmap);
-  }
-  else if (str == "LoadBitmapHeader")
-  {
-    return reinterpret_cast<void *>(LoadBitmapHeader);
-  }
-  else if (str == "GetBitmapProfile")
-  {
-    return reinterpret_cast<void *>(GetBitmapProfile);
-  }
-  return nullptr;
-}
+public:
 
-extern "C" void* GetInstanceProc( const char* funcname )
-{
-  return nullptr;
-}
+  void GetAddOnInfo( Dali::AddOnInfo& info ) override
+  {
+    info.type = Dali::AddOnType::IMAGE_LOADER;
+    info.name = "raw-image-loader";
+    info.version = Dali::DALI_ADDON_VERSION( 1, 0, 0 );
+    info.next = nullptr;
+  }
+
+  DispatchTable* GetGlobalDispatchTable() override
+  {
+    static DispatchTable dispatchTable;
+    if( dispatchTable.Empty() )
+    {
+      dispatchTable["GetFormatMagicNumber"] = GetFormatMagicNumber;
+      dispatchTable["GetFormatExtension"] = GetFormatExtension;
+      dispatchTable["LoadBitmap"] = LoadBitmap;
+      dispatchTable["LoadBitmapHeader"] = LoadBitmapHeader;
+      dispatchTable["GetBitmapProfile"] = GetBitmapProfile;
+    }
+    return &dispatchTable;
+  }
+
+  DispatchTable* GetInstanceDispatchTable() override
+  {
+    return nullptr;
+  }
+};
+
+REGISTER_ADDON_CLASS( RawImageLoader );
