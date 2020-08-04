@@ -17,9 +17,13 @@ Sample build.cmake file:
     SET(ADDON_ENABLED 1)
 
 **ADDON_NAME** - name of the final addon library
+
 **ADDON_VERSION** - version of addon
+
 **SOURCES** - list of the source files to build the addon
+
 **ADDON_ENABLED** - (optional, 1 by default), if 0 the addon is excluded from the build
+
 **CURRENT_DIR** - the path relative to the addon source directory (**must not be changed!**)
 
 ### Implementing the new AddOn

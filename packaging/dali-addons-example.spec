@@ -68,7 +68,7 @@ cd build/tizen
 pushd %{_builddir}/%{name}-%{version}/build/tizen
 %make_install
 
-%if 0%{?enable_dali_smack_rules} && !%{with wayland}
+%if 0%{?enable_dali_smack_rules}
 mkdir -p %{buildroot}%{smack_rule_dir}
 cp -f %{_builddir}/%{name}-%{version}/%{name}.rule %{buildroot}%{smack_rule_dir}
 %endif
@@ -103,7 +103,7 @@ exit 0
 %{_libdir}/*.so*
 
 %defattr(-,root,root,-)
-%if 0%{?enable_dali_smack_rules} && !%{with wayland}
+%if 0%{?enable_dali_smack_rules}
 %config %{smack_rule_dir}/%{name}.rule
 %endif
 %license LICENSE
